@@ -2,7 +2,7 @@ import os
 import ray
 import sys
 import pytest
-from ray.util.executor.ray_executor import RayExecutor
+from ray.util.executor.ray_executor import RayExecutor, ProcessPoolExecutor
 import time
 from concurrent.futures._base import TimeoutError
 
@@ -184,6 +184,29 @@ def test_with_syntax_invokes_shutdown():
     with RayExecutor() as ex:
         pass
     assert ex._shutdown_lock
+
+#---------------------------------------------------------------------------------------------------- 
+# ProcessPoolExecutor tests 
+#---------------------------------------------------------------------------------------------------- 
+
+def _f_processpoolexecutor_returns_same_results(i):
+    return [x for x in range(i)]
+
+
+def test_processpoolexecutor_returns_same_results():
+    with RayExecutor() as ex:
+        result_ray = ex.submit(_f_processpoolexecutor_returns_same_results, 100).result()
+    with ProcessPoolExecutor() as ex:
+        result_ppe = ex.submit(_f_processpoolexecutor_returns_same_results, 100).result()
+    assert result_ray == result_ppe
+
+def test_processpoolexecutor_returns_same_results_with_map():
+    with RayExecutor() as ex:
+        result_ray = ex.map(_f_processpoolexecutor_returns_same_results, [100, 200, 300])
+    with ProcessPoolExecutor() as ex:
+        result_ppe = ex.map(_f_processpoolexecutor_returns_same_results, [100, 200, 300])
+    assert sorted([i for i in result_ray]) == sorted([i for i in result_ppe])
+
 
 
 
