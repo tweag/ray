@@ -205,10 +205,6 @@ def test_with_syntax_invokes_shutdown():
         pass
     assert ex._shutdown_lock
 
-
-# ----------------------------------------------------------------------------------------------------
-# ThreadPool/ProcessPool comparison
-# ----------------------------------------------------------------------------------------------------
 def f_process(x):
     return len([i for i in range(x) if i % 2 == 0])
 
@@ -224,12 +220,27 @@ def test_conformity_with_processpool():
 
 def test_conformity_with_threadpool():
     with RayExecutor() as ex:
-        ray_result = ex.submit(lambda x: len([i for i in range(x) if i % 2 == 0]), 100)
+        ray_result = ex.submit(f_process, 100)
     with ThreadPoolExecutor() as tpe:
-        tpe_result = tpe.submit(lambda x: len([i for i in range(x) if i % 2 == 0]), 100)
+        tpe_result = tpe.submit(f_process, 100)
     assert type(ray_result) == type(tpe_result)
     assert ray_result.result() == tpe_result.result()
 
+def test_actor_usage_for_tasks():
+    a = ActorTest0.options(name="A", get_if_exists=True).remote("A")
+    with RayExecutor() as ex:
+        value1 = ex.submit_actor_function(a.actor_function, 1)
+        a_after = ray.get_actor("A")
+        value2 = ex.submit_actor_function(a.actor_function, 2)
+    assert value2.result() == "A-Actor-2"
+
+def test_detached_actor_after_tasks():
+    a = ActorTest0.options(name="A1", namespace="A", lifetime="detached").remote("A")
+    with RayExecutor() as ex:
+        value1 = ex.submit_actor_function(a.actor_function, 1)
+    a_after = ray.get_actor("A1", namespace="A")
+    # THIS FAILS BUT SHOULDN'T
+    assert a_after == a
 
 if __name__ == "__main__":
     if os.environ.get("PARALLEL_CI"):
