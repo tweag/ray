@@ -11,6 +11,7 @@ from typing import (
     ParamSpec,
     TYPE_CHECKING,
     TypeVar,
+    Union
 )
 
 import ray
@@ -58,7 +59,7 @@ class RayExecutor(Executor):
     def __init__(
         self,
         max_workers: Optional[int] = None,
-        shutdown_ray: bool = True,
+        shutdown_ray: bool = False,
         **kwargs: Any,
     ):
 
@@ -109,18 +110,12 @@ class RayExecutor(Executor):
 
                 def actor_function(self, fn: Callable[[], T]) -> T:
                     return fn()
-
             actors = [
                 ExecutorActor.options(  # type: ignore[attr-defined]
-                    name=f"actor-{i}"
                 ).remote()
                 for i in range(max_workers)
             ]
-            if self._actor_pool is not None:
-                for actor in self._actor_pool:
-                    del actor
-                del self._actor_pool
-            self._actor_pool = ray.util.ActorPool(actors)
+            self._actor_pool = ActorPool(actors)
             self.max_workers = max_workers
         self._context = ray.init(ignore_reinit_error=True, **kwargs)
 
@@ -242,11 +237,12 @@ class RayExecutor(Executor):
 
         if timeout is not None:
             end_time = timeout + time.monotonic()
-        fs = [self.submit(fn, *args) for args in zip(*iterables)]
 
         # Yield must be hidden in closure so that the futures are submitted
         # before the first iterator value is required.
         if self._actor_pool is not None:
+            for args in zip(*iterables):
+                self.submit(fn, *args)
 
             def result_iterator() -> Iterator[T]:
                 assert self._actor_pool is not None
@@ -262,6 +258,7 @@ class RayExecutor(Executor):
                             raise ConTimeoutError
 
         else:
+            fs = [self.submit(fn, *args) for args in zip(*iterables)]
 
             def result_iterator() -> Iterator[T]:
                 try:

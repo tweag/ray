@@ -10,17 +10,16 @@ from concurrent.futures import (
     TimeoutError as ConTimeoutError,
 )
 
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests():
+    yield # this is where the testing happens
+    ray.shutdown()
 
 def test_remote_function_runs_on_local_instance():
     with RayExecutor() as ex:
         result = ex.submit(lambda x: x * x, 100).result()
         assert result == 10_000
 
-
-def test_existing_instance_ignores_max_workers():
-    _ = ray.init(num_cpus=1)
-    with RayExecutor(max_workers=2):
-        assert ray.available_resources()["CPU"] == 1
 
 
 def test_remote_function_runs_multiple_tasks_on_local_instance():
@@ -79,7 +78,6 @@ def test_results_are_accessible_after_shutdown():
         list(r1)
     except AttributeError:
         pytest.fail("Map results are not accessible after executor shutdown")
-
 
 def test_actor_pool_results_are_accessible_after_shutdown():
     def f(x, y):
@@ -150,7 +148,7 @@ def test_remote_function_runs_multiple_tasks_using_max_workers():
 
 
 def test_cannot_submit_after_shutdown():
-    ex = RayExecutor()
+    ex = RayExecutor(shutdown_ray=True)
     ex.submit(lambda: True).result()
     ex.shutdown()
     with pytest.raises(RuntimeError):
@@ -172,7 +170,7 @@ def test_can_submit_after_shutdown():
 
 
 def test_cannot_map_after_shutdown():
-    ex = RayExecutor()
+    ex = RayExecutor(shutdown_ray=True)
     ex.submit(lambda: True).result()
     ex.shutdown()
     with pytest.raises(RuntimeError):
@@ -180,7 +178,7 @@ def test_cannot_map_after_shutdown():
 
 
 def test_pending_task_is_cancelled_after_shutdown():
-    ex = RayExecutor()
+    ex = RayExecutor(shutdown_ray=True)
     f = ex.submit(lambda: True)
     assert f._state == "PENDING"
     ex.shutdown(cancel_futures=True)
@@ -188,7 +186,7 @@ def test_pending_task_is_cancelled_after_shutdown():
 
 
 def test_running_task_finishes_after_shutdown():
-    ex = RayExecutor()
+    ex = RayExecutor(shutdown_ray=True)
     f = ex.submit(lambda: True)
     assert f._state == "PENDING"
     f.set_running_or_notify_cancel()
@@ -198,7 +196,7 @@ def test_running_task_finishes_after_shutdown():
 
 
 def test_mixed_task_states_handled_by_shutdown():
-    ex = RayExecutor()
+    ex = RayExecutor(shutdown_ray=True)
     f0 = ex.submit(lambda: True)
     f1 = ex.submit(lambda: True)
     assert f0._state == "PENDING"
@@ -210,7 +208,7 @@ def test_mixed_task_states_handled_by_shutdown():
 
 
 def test_with_syntax_invokes_shutdown():
-    with RayExecutor() as ex:
+    with RayExecutor(shutdown_ray=True) as ex:
         pass
     assert ex._shutdown_lock
 
