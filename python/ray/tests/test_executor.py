@@ -10,16 +10,17 @@ from concurrent.futures import (
     TimeoutError as ConTimeoutError,
 )
 
+
 @pytest.fixture(autouse=True)
 def run_before_and_after_tests():
-    yield # this is where the testing happens
+    yield  # this is where the testing happens
     ray.shutdown()
+
 
 def test_remote_function_runs_on_local_instance():
     with RayExecutor() as ex:
         result = ex.submit(lambda x: x * x, 100).result()
         assert result == 10_000
-
 
 
 def test_remote_function_runs_multiple_tasks_on_local_instance():
@@ -79,6 +80,7 @@ def test_results_are_accessible_after_shutdown():
     except AttributeError:
         pytest.fail("Map results are not accessible after executor shutdown")
 
+
 def test_actor_pool_results_are_accessible_after_shutdown():
     def f(x, y):
         return x * y
@@ -89,6 +91,7 @@ def test_actor_pool_results_are_accessible_after_shutdown():
         list(r1)
     except AttributeError:
         pytest.fail("Map results are not accessible after executor shutdown")
+
 
 def test_changing_n_workers_without_shutdown():
     n = 3

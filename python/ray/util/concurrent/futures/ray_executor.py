@@ -11,7 +11,6 @@ from typing import (
     ParamSpec,
     TYPE_CHECKING,
     TypeVar,
-    Union
 )
 
 import ray
@@ -110,9 +109,9 @@ class RayExecutor(Executor):
 
                 def actor_function(self, fn: Callable[[], T]) -> T:
                     return fn()
+
             actors = [
-                ExecutorActor.options(  # type: ignore[attr-defined]
-                ).remote()
+                ExecutorActor.options().remote()  # type: ignore[attr-defined]
                 for i in range(max_workers)
             ]
             self._actor_pool = ActorPool(actors)
