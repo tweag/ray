@@ -90,6 +90,28 @@ def test_actor_pool_results_are_accessible_after_shutdown():
     except AttributeError:
         pytest.fail("Map results are not accessible after executor shutdown")
 
+def test_changing_n_workers_without_shutdown():
+    n = 3
+    with RayExecutor(max_workers=n) as ex:
+        assert ex._actor_pool is not None
+        assert len(ex._actor_pool._idle_actors) == n
+        time_start = time.monotonic()
+        _ = list(ex.map(lambda _: time.sleep(1), range(12)))
+        time_end = time.monotonic()
+        # we expect about (12*1) / 3 = 4 rounds
+        delta = time_end - time_start
+        assert delta > 3.0
+    n = 6
+    with RayExecutor(max_workers=n) as ex:
+        assert ex._actor_pool is not None
+        assert len(ex._actor_pool._idle_actors) == n
+        time_start = time.monotonic()
+        _ = list(ex.map(lambda _: time.sleep(1), range(12)))
+        time_end = time.monotonic()
+        # we expect about (12*1) / 3 = 4 rounds
+        delta = time_end - time_start
+        assert delta < 3.0
+
 
 def test_remote_function_max_workers_same_result():
     with RayExecutor() as ex:
